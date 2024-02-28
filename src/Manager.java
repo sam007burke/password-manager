@@ -56,12 +56,14 @@ public class Manager {
         this.dbURL = dbURL;
     }
 
-    public void enterPassword(String password) throws NoSuchAlgorithmException {
+    public void enterPassword(String password) throws EncryptionException {
 
         this.passwordHash = hashString(password);
     }
 
-    public String getEncryptedContents() throws ParserConfigurationException, IOException, SAXException {
+    // public void openDB(String dbURL, String password)
+
+    public String getEncryptedContents() throws FileAccessException {
 
         Document doc = getFileDoc();
         doc.getDocumentElement().normalize();
@@ -69,68 +71,114 @@ public class Manager {
         return rootElement.getLastChild().getTextContent();
     }
 
-    private Document getFileDoc() throws ParserConfigurationException, IOException, SAXException {
+    private Document getFileDoc() throws FileAccessException {
 
-        File f = new File(dbURL);
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        Document doc = db.parse(f);
-        return doc;
+        try {
+
+            File f = new File(dbURL);
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            DocumentBuilder db = dbf.newDocumentBuilder();
+            Document doc = db.parse(f);
+            return doc;
+        }
+        catch (ParserConfigurationException | IOException | SAXException e) {
+
+            throw new FileAccessException(e.getMessage());
+        }
     }
 
-    private SecretKey getEncryptionKey() throws ParserConfigurationException, IOException, SAXException, NoSuchAlgorithmException, InvalidKeySpecException {
+    private SecretKey getEncryptionKey() throws FileAccessException, EncryptionException {
 
         Document doc = getFileDoc();
         doc.getDocumentElement().normalize();
         Node rootElement = doc.getDocumentElement();
         String salt = rootElement.getFirstChild().getAttributes().getNamedItem("salt").getTextContent();
         
-        SecretKeyFactory scf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-        KeySpec spec = new PBEKeySpec(passwordHash.toCharArray(), salt.getBytes(), 65536, 256);
-        SecretKey secret = new SecretKeySpec(scf.generateSecret(spec).getEncoded(), algorithm);
+        try {
+        
+            SecretKeyFactory scf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            KeySpec spec = new PBEKeySpec(passwordHash.toCharArray(), salt.getBytes(), 65536, 256);
+            SecretKey secret = new SecretKeySpec(scf.generateSecret(spec).getEncoded(), algorithm);
+            return secret;
+        }
+        catch (InvalidKeySpecException | NoSuchAlgorithmException e) {
 
-        return secret;
+            throw new EncryptionException("Could not generate encryption key: " + e.getMessage());
+        }
     }
 
-    public String hashString(String s) throws NoSuchAlgorithmException {
+    public String hashString(String s) throws EncryptionException {
 
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        digest.update(s.getBytes());
-        return new String(digest.digest());
+        try {
+        
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(s.getBytes());
+            return new String(digest.digest());
+        }
+        catch (NoSuchAlgorithmException e) {
+
+            throw new EncryptionException("Cannot hash given string. (invalid hash algorithm).");
+        }
     }
 
-    public void encryptDB() throws ParserConfigurationException, IOException, SAXException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, TransformerException, TransformerConfigurationException {
+    public void encryptDB() throws EncryptionException, FileAccessException, DBFormatException {
 
-        Cipher cipher = Cipher.getInstance(algorithm);
-        cipher.init(Cipher.ENCRYPT_MODE, getEncryptionKey());
+        try{
 
-        TransformerFactory tf = TransformerFactory.newInstance();
-        Transformer t = tf.newTransformer();
-        DOMSource source = new DOMSource(this.db);
-        StringWriter writer = new StringWriter();
-        StreamResult result = new StreamResult(writer);
-        t.transform(source, result);
+            Cipher cipher = Cipher.getInstance(algorithm);
+            cipher.init(Cipher.ENCRYPT_MODE, getEncryptionKey());
 
-        byte[] cipherText = cipher.doFinal(writer.toString().getBytes());
-        String encrypted = Base64.getEncoder().encodeToString(cipherText);
-        Document doc = getFileDoc();
-        doc.getDocumentElement().getLastChild().setTextContent(encrypted);
-        writeDocument(doc);
+            TransformerFactory tf = TransformerFactory.newInstance();
+            Transformer t = tf.newTransformer();
+            DOMSource source = new DOMSource(this.db);
+            StringWriter writer = new StringWriter();
+            StreamResult result = new StreamResult(writer);
+            t.transform(source, result);
+
+            byte[] cipherText = cipher.doFinal(writer.toString().getBytes());
+            String encrypted = Base64.getEncoder().encodeToString(cipherText);
+            Document doc = getFileDoc();
+            doc.getDocumentElement().getLastChild().setTextContent(encrypted);
+            writeDocument(doc);
+        }
+        catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
+
+            throw new EncryptionException("Cannot encrypt database: " + e.getMessage());
+        }
+        catch (TransformerException e) {
+
+            throw new DBFormatException("Cannot prepare database for encryption: " + e.getMessage());
+        }
     }
 
-    public void decryptDB() throws ParserConfigurationException, IOException, SAXException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeySpecException {
+    public void decryptDB() throws FileAccessException, EncryptionException, DBFormatException {
 
-        String cipherText = getEncryptedContents();
-        Cipher cipher = Cipher.getInstance(algorithm);
-        cipher.init(Cipher.DECRYPT_MODE, getEncryptionKey());
-        byte[] plainText = cipher.doFinal(Base64.getDecoder().decode(cipherText));
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        Document decryptedDB = db.parse(new InputSource(new StringReader(new String(plainText))));
-        this.db = decryptedDB;
+        try {
+
+            String cipherText = getEncryptedContents();
+            Cipher cipher = Cipher.getInstance(algorithm);
+            cipher.init(Cipher.DECRYPT_MODE, getEncryptionKey());
+            byte[] plainText = cipher.doFinal(Base64.getDecoder().decode(cipherText));
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            DocumentBuilder db = dbf.newDocumentBuilder();
+            Document decryptedDB = db.parse(new InputSource(new StringReader(new String(plainText))));
+            this.db = decryptedDB;
+        }
+        catch (NoSuchAlgorithmException | NoSuchPaddingException | IllegalBlockSizeException | InvalidKeyException | BadPaddingException e) {
+
+            throw new EncryptionException("Cannot decrypt database: " + e.getMessage());
+        }
+        catch (ParserConfigurationException | IOException | SAXException e) {
+
+            throw new DBFormatException("Cannot parse database decrypt: " + e.getMessage());
+        }
     }
 
-    public void addEntry(String ID, String username, String entryPassword) {
+    public void addEntry(String ID, String username, String entryPassword) throws DBFormatException {
+        
+        if (db == null) {
+            throw new DBFormatException("Database not yet loaded.");
+        }
 
         Element entry = db.createElement("entry");
         Attr id = db.createAttribute("id");
@@ -145,48 +193,65 @@ public class Manager {
         db.getDocumentElement().appendChild(entry);
     }
 
-    public String retrieveUsername(String ID) {
+    public String retrieveUsername(String ID) throws DBFormatException {
 
-        NodeList nodes = db.getDocumentElement().getChildNodes();
-        int i = 0;
-        Node currNode;
-        while ((currNode = nodes.item(i++)) != null) {
-            if (currNode.getAttributes().getNamedItem("id").getTextContent().equals(ID)) {
-                return currNode.getAttributes().getNamedItem("username").getTextContent();
+        try {
+
+            NodeList nodes = db.getDocumentElement().getChildNodes();
+            int i = 0;
+            Node currNode;
+            while ((currNode = nodes.item(i++)) != null) {
+                if (currNode.getAttributes().getNamedItem("id").getTextContent().equals(ID)) {
+                    return currNode.getAttributes().getNamedItem("username").getTextContent();
+                }
             }
+            return null;
         }
-        return null;
+        catch (NullPointerException e) {
+
+            throw new DBFormatException("Database not yet loaded.");
+        }
     }
 
-    public String retrievePassword(String ID) {
+    public String retrievePassword(String ID) throws DBFormatException {
 
-        NodeList nodes = db.getDocumentElement().getChildNodes();
-        int i = 0;
-        Node currNode;
-        while ((currNode = nodes.item(i++)) != null) {
-            if (currNode.getAttributes().getNamedItem("id").getTextContent().equals(ID)) {
-                return currNode.getAttributes().getNamedItem("password").getTextContent();
+        try {
+
+            NodeList nodes = db.getDocumentElement().getChildNodes();
+            int i = 0;
+            Node currNode;
+            while ((currNode = nodes.item(i++)) != null) {
+                if (currNode.getAttributes().getNamedItem("id").getTextContent().equals(ID)) {
+                    return currNode.getAttributes().getNamedItem("password").getTextContent();
+                }
             }
+            return null;
         }
-        return null;
+        catch (NullPointerException e) {
+
+            throw new DBFormatException("Database not yet loaded.");
+        }
     }
 
     public void createDB() {
 
         try {
-
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newDefaultInstance();
             DocumentBuilder db = dbf.newDocumentBuilder();
             Document doc = db.newDocument();
-            Element rootElement = doc.createElement("passwords");
+            Element rootElement = doc.createElement("root");
             doc.appendChild(rootElement);
             this.db = doc;
-        } catch (Exception e) { System.out.println(e.getMessage());}
+        }
+        catch (ParserConfigurationException e) {
+            
+            // we shouldnt ever really get here
+        }
     }
 
     
 
-    public void createFile() {
+    public void createFile() throws FileAccessException {
 
         try {
 
@@ -216,18 +281,26 @@ public class Manager {
             // write the new document as a file
             writeDocument(doc);
         }
-        catch (Exception e) {
-            System.out.println(e.getMessage());
+        catch (ParserConfigurationException e) {
+        
+            throw new FileAccessException("Could not write document to file.");
         }
     }
 
-    private void writeDocument(Document doc) throws TransformerConfigurationException, TransformerException {
+    private void writeDocument(Document doc) throws FileAccessException {
 
-        TransformerFactory tf = TransformerFactory.newInstance();
-        Transformer t = tf.newTransformer();
-        DOMSource source = new DOMSource(doc);
-        StreamResult result = new StreamResult(new File(dbURL));
-        t.transform(source, result);
+        try {
+
+            TransformerFactory tf = TransformerFactory.newInstance();
+            Transformer t = tf.newTransformer();
+            DOMSource source = new DOMSource(doc);
+            StreamResult result = new StreamResult(new File(dbURL));
+            t.transform(source, result);
+        }
+        catch (TransformerException e) {
+
+            throw new FileAccessException("Cannot write document to file.");
+        }
     }
 
     private byte[] generateSalt() {
