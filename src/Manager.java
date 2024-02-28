@@ -12,6 +12,8 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 import java.text.AttributedCharacterIterator.Attribute;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.HashSet;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -174,26 +176,55 @@ public class Manager {
         }
     }
 
-    public void addEntry(String ID, String username, String entryPassword) throws DBFormatException {
+    public void addEntry(String title, String URL, String username, String entryPassword) throws DBFormatException {
         
         if (db == null) {
             throw new DBFormatException("Database not yet loaded.");
         }
 
+        int entryID = Integer.parseInt(db.getDocumentElement().getAttribute("nextID"));
+        db.getDocumentElement().setAttribute("nextID", String.valueOf(entryID + 1));
+
         Element entry = db.createElement("entry");
-        Attr id = db.createAttribute("id");
-        Attr u = db.createAttribute("username");
-        Attr p = db.createAttribute("password");
-        id.setTextContent(ID);
-        u.setTextContent(username);
-        p.setTextContent(entryPassword);
-        entry.setAttributeNode(id);
-        entry.setAttributeNode(u);
-        entry.setAttributeNode(p);
+        entry.setAttribute("id", String.valueOf(entryID));
+        entry.setAttribute("title", title);
+        entry.setAttribute("url", URL);
+        entry.setAttribute("username", username);
+        entry.setAttribute("password", entryPassword);
         db.getDocumentElement().appendChild(entry);
     }
+    
+    public void addEntry(String Title, String username, String entryPassword) throws DBFormatException {
 
-    public String retrieveUsername(String ID) throws DBFormatException {
+        addEntry(Title, "", username, entryPassword);
+    }
+    
+    public HashSet<Integer> getEntriesWhereMatches(String attribute, String value) throws InvalidAttributeException {
+
+        HashSet<String> allowedAttributes = new HashSet<>();
+        Collections.addAll(allowedAttributes, "title", "url", "username");
+        attribute = attribute.toLowerCase();
+
+        if (!allowedAttributes.contains(attribute)) {
+
+            throw new InvalidAttributeException(attribute + " is not a valid entry attribute.");
+        }
+
+        HashSet<Integer> entryIDs = new HashSet<>();
+        int i = 0;
+        Node currNode;
+        NodeList nodes = db.getDocumentElement().getChildNodes();
+        while ((currNode = nodes.item(i++)) != null) {
+
+            if (currNode.getAttributes().getNamedItem(attribute).getTextContent().equals(value)) {
+
+                entryIDs.add(Integer.parseInt(currNode.getAttributes().getNamedItem("id").getTextContent()));
+            }
+        }
+        return entryIDs;
+    }
+
+    public String retrieveUsername(int ID) throws DBFormatException {
 
         try {
 
@@ -201,7 +232,7 @@ public class Manager {
             int i = 0;
             Node currNode;
             while ((currNode = nodes.item(i++)) != null) {
-                if (currNode.getAttributes().getNamedItem("id").getTextContent().equals(ID)) {
+                if (currNode.getAttributes().getNamedItem("id").getTextContent().equals(String.valueOf(ID))) {
                     return currNode.getAttributes().getNamedItem("username").getTextContent();
                 }
             }
@@ -213,7 +244,7 @@ public class Manager {
         }
     }
 
-    public String retrievePassword(String ID) throws DBFormatException {
+    public String retrievePassword(int ID) throws DBFormatException {
 
         try {
 
@@ -221,7 +252,7 @@ public class Manager {
             int i = 0;
             Node currNode;
             while ((currNode = nodes.item(i++)) != null) {
-                if (currNode.getAttributes().getNamedItem("id").getTextContent().equals(ID)) {
+                if (currNode.getAttributes().getNamedItem("id").getTextContent().equals(String.valueOf(ID))) {
                     return currNode.getAttributes().getNamedItem("password").getTextContent();
                 }
             }
@@ -236,11 +267,15 @@ public class Manager {
     public void createDB() {
 
         try {
+
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newDefaultInstance();
             DocumentBuilder db = dbf.newDocumentBuilder();
             Document doc = db.newDocument();
+            
             Element rootElement = doc.createElement("root");
             doc.appendChild(rootElement);
+            rootElement.setAttribute("nextID", "1");
+
             this.db = doc;
         }
         catch (ParserConfigurationException e) {
