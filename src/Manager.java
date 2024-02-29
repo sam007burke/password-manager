@@ -199,7 +199,7 @@ public class Manager {
         addEntry(Title, "", username, entryPassword);
     }
     
-    public HashSet<Integer> getEntriesWhereMatches(String attribute, String value) throws InvalidAttributeException {
+    public HashSet<Integer> getIDsWhereMatches(String attribute, String value) throws InvalidAttributeException {
 
         HashSet<String> allowedAttributes = new HashSet<>();
         Collections.addAll(allowedAttributes, "title", "url", "username");
@@ -238,6 +238,20 @@ public class Manager {
             }
         }
         return null;
+    }
+
+    public HashSet<Entry> getEntriesWhereMatches(String attribute, String value) throws InvalidAttributeException {
+
+        HashSet<Entry> entries = new HashSet<>();        
+
+        HashSet<Integer> IDs = getIDsWhereMatches(attribute, value);
+        for (int ID : IDs) {
+
+
+            entries.add(getEntryByID(ID));
+        }
+
+        return entries;
     }
 
     public String retrieveUsername(int ID) throws DBFormatException {

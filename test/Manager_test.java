@@ -1,5 +1,6 @@
 import static org.junit.Assert.fail;
 
+import org.hamcrest.MatcherAssert;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -7,6 +8,8 @@ import org.junit.experimental.theories.suppliers.TestedOn;
 
 import java.util.HashSet;
 import java.util.Iterator;
+
+import javax.print.attribute.HashAttributeSet;
 
 
 public class Manager_test {
@@ -135,7 +138,7 @@ public class Manager_test {
             m.enterPassword("bananas");
             m.setDbURL("myFiles/test.pdb");
             m.decryptDB();
-            HashSet<Integer> entryIDs = m.getEntriesWhereMatches("URL", "samuelburke.xyz");
+            HashSet<Integer> entryIDs = m.getIDsWhereMatches("URL", "samuelburke.xyz");
             Assert.assertEquals(1, entryIDs.size());
             Assert.assertEquals(1, (int)entryIDs.iterator().next());
         }
@@ -154,7 +157,7 @@ public class Manager_test {
             m.enterPassword("bananas");
             m.setDbURL("myFiles/test.pdb");
             m.decryptDB();
-            Assert.assertThrows(InvalidAttributeException.class, () -> m.getEntriesWhereMatches("notanattribute", "samuelburke.xyz"));
+            Assert.assertThrows(InvalidAttributeException.class, () -> m.getIDsWhereMatches("notanattribute", "samuelburke.xyz"));
         }
         catch(EncryptionException | FileAccessException | DBFormatException e) {
 
@@ -171,7 +174,7 @@ public class Manager_test {
             m.enterPassword("bananas");
             m.setDbURL("myFiles/test.pdb");
             m.decryptDB();
-            HashSet<Integer> entryIDs = m.getEntriesWhereMatches("Title", "MySite");
+            HashSet<Integer> entryIDs = m.getIDsWhereMatches("Title", "MySite");
             Iterator<Integer> idIterator = entryIDs.iterator();
             Assert.assertEquals(2, entryIDs.size());
             Assert.assertEquals(1, (int)idIterator.next());
@@ -217,6 +220,85 @@ public class Manager_test {
             m.decryptDB();
             Entry e = m.getEntryByID(10);
             Assert.assertNull(e);
+        }
+        catch(EncryptionException | FileAccessException | DBFormatException e) {
+
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void getEntriesByTitle_existsMultiple() {
+
+        try {
+
+            Manager m = new Manager();
+            m.enterPassword("bananas");
+            m.setDbURL("myFiles/test.pdb");
+            m.decryptDB();
+            HashSet<Entry> es = m.getEntriesWhereMatches("title", "MySite");
+            Iterator<Entry> esi = es.iterator();
+            Assert.assertEquals(2, es.size());
+            HashSet<Integer> ids = new HashSet<>();
+            ids.add(esi.next().getID());
+            ids.add(esi.next().getID());
+            Assert.assertTrue(ids.contains(1));
+            Assert.assertTrue(ids.contains(3));
+        }
+        catch(EncryptionException | FileAccessException | DBFormatException e) {
+
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void getEntriesByTitle_existsOne() {
+
+        try {
+
+            Manager m = new Manager();
+            m.enterPassword("bananas");
+            m.setDbURL("myFiles/test.pdb");
+            m.decryptDB();
+            HashSet<Entry> es = m.getEntriesWhereMatches("title", "Google");
+            Assert.assertEquals(1, es.size());
+            Iterator<Entry> esi = es.iterator();
+            Assert.assertEquals(2, esi.next().getID());
+        }
+        catch(EncryptionException | FileAccessException | DBFormatException e) {
+
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void getEntriesByTitle_notExists() {
+
+        try {
+
+            Manager m = new Manager();
+            m.enterPassword("bananas");
+            m.setDbURL("myFiles/test.pdb");
+            m.decryptDB();
+            HashSet<Entry> es = m.getEntriesWhereMatches("title", "NotATitle");
+            Assert.assertEquals(0, es.size());
+        }
+        catch(EncryptionException | FileAccessException | DBFormatException e) {
+
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void getEntriesByInvalidAttribute() {
+
+        try {
+
+            Manager m = new Manager();
+            m.enterPassword("bananas");
+            m.setDbURL("myFiles/test.pdb");
+            m.decryptDB();
+            Assert.assertThrows(InvalidAttributeException.class, () -> m.getEntriesWhereMatches("titleName", "Google"));
         }
         catch(EncryptionException | FileAccessException | DBFormatException e) {
 
