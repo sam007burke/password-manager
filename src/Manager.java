@@ -224,6 +224,22 @@ public class Manager {
         return entryIDs;
     }
 
+    public Entry getEntryByID(int ID) {
+    
+        int i = 0;
+        Node currNode;
+        NodeList nodes = db.getDocumentElement().getChildNodes();
+        while ((currNode = nodes.item(i++)) != null) {
+
+            if (Integer.parseInt(currNode.getAttributes().getNamedItem("id").getTextContent()) == ID) {
+
+                NamedNodeMap attributes = currNode.getAttributes();
+                return new Entry(ID, attributes.getNamedItem("title").getTextContent(), attributes.getNamedItem("url").getTextContent(), attributes.getNamedItem("username").getTextContent(), attributes.getNamedItem("password").getTextContent());
+            }
+        }
+        return null;
+    }
+
     public String retrieveUsername(int ID) throws DBFormatException {
 
         try {

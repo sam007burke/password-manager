@@ -3,6 +3,7 @@ import static org.junit.Assert.fail;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.theories.suppliers.TestedOn;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -177,6 +178,47 @@ public class Manager_test {
             Assert.assertEquals(3, (int)idIterator.next());
         }
         catch(EncryptionException | FileAccessException | DBFormatException | InvalidAttributeException e) {
+
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void getEntryByID_1() {
+
+        try {
+
+            Manager m = new Manager();
+            m.enterPassword("bananas");
+            m.setDbURL("myFiles/test.pdb");
+            m.decryptDB();
+            Entry e = m.getEntryByID(1);
+            Assert.assertNotNull(e);
+            Assert.assertEquals(1, e.getID());
+            Assert.assertEquals("MySite", e.getTitle());
+            Assert.assertEquals("samuelburke.xyz", e.getURL());
+            Assert.assertEquals("sam", e.getUsername());
+            Assert.assertEquals("bananas", e.getPassword());
+        }
+        catch(EncryptionException | FileAccessException | DBFormatException e) {
+
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void getEntryByID_NoID() {
+
+        try {
+
+            Manager m = new Manager();
+            m.enterPassword("bananas");
+            m.setDbURL("myFiles/test.pdb");
+            m.decryptDB();
+            Entry e = m.getEntryByID(10);
+            Assert.assertNull(e);
+        }
+        catch(EncryptionException | FileAccessException | DBFormatException e) {
 
             fail(e.getMessage());
         }
