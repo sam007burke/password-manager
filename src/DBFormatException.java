@@ -1,4 +1,4 @@
-public class DBFormatException extends Exception {
+public class DBFormatException extends RuntimeException {
     
     public DBFormatException(String message) {
         super(message);

@@ -47,10 +47,16 @@ public class Manager {
     private String dbURL;
     private Document db;
     private String passwordHash;
+    private HashSet<String> allowedAttributes = new HashSet<>();
 
     public static void main(String[] args) {
         
 
+    }
+
+    public Manager() {
+        
+        Collections.addAll(allowedAttributes, "title", "url", "username", "password");
     }
 
     public void setDbURL(String dbURL) {
@@ -177,7 +183,7 @@ public class Manager {
     }
 
     public void addEntry(String title, String URL, String username, String entryPassword) throws DBFormatException {
-        
+
         if (db == null) {
             throw new DBFormatException("Database not yet loaded.");
         }
@@ -198,17 +204,55 @@ public class Manager {
 
         addEntry(Title, "", username, entryPassword);
     }
-    
-    public HashSet<Integer> getIDsWhereMatches(String attribute, String value) throws InvalidAttributeException {
 
-        HashSet<String> allowedAttributes = new HashSet<>();
-        Collections.addAll(allowedAttributes, "title", "url", "username");
+    private String validateAttributeAndSanitise(String attribute) throws InvalidAttributeException {
+
         attribute = attribute.toLowerCase();
 
         if (!allowedAttributes.contains(attribute)) {
 
             throw new InvalidAttributeException(attribute + " is not a valid entry attribute.");
         }
+        return attribute;
+    }
+
+    public void modifyEntry(int ID, String attribute, String newValue) throws InvalidAttributeException, DBFormatException {
+
+        if (db == null) {
+            throw new DBFormatException("Database not yet loaded.");
+        }
+
+        attribute = validateAttributeAndSanitise(attribute);
+
+        getEntryNodeByID(ID).getAttributes().getNamedItem(attribute).setNodeValue(newValue);
+    }
+
+    private Node getEntryNodeByID(int ID) throws DBFormatException {
+
+        if (db == null) {
+            throw new DBFormatException("Database not yet loaded.");
+        }
+
+        int i = 0;
+        Node currNode;
+        NodeList nodes = db.getDocumentElement().getChildNodes();
+        while ((currNode = nodes.item(i++)) != null) {
+
+            if (Integer.parseInt(currNode.getAttributes().getNamedItem("id").getTextContent()) == ID) {
+
+                return currNode;
+            }
+        }
+        return null;
+    }
+    
+    public HashSet<Integer> getIDsWhereMatches(String attribute, String value) throws InvalidAttributeException, DBFormatException {
+
+        if (db == null) {
+            throw new DBFormatException("Database not yet loaded.");
+        }
+
+        attribute = validateAttributeAndSanitise(attribute);
 
         HashSet<Integer> entryIDs = new HashSet<>();
         int i = 0;
@@ -224,29 +268,20 @@ public class Manager {
         return entryIDs;
     }
 
-    public Entry getEntryByID(int ID) {
+    public Entry getEntryByID(int ID) throws DBFormatException {
     
-        int i = 0;
-        Node currNode;
-        NodeList nodes = db.getDocumentElement().getChildNodes();
-        while ((currNode = nodes.item(i++)) != null) {
-
-            if (Integer.parseInt(currNode.getAttributes().getNamedItem("id").getTextContent()) == ID) {
-
-                NamedNodeMap attributes = currNode.getAttributes();
-                return new Entry(ID, attributes.getNamedItem("title").getTextContent(), attributes.getNamedItem("url").getTextContent(), attributes.getNamedItem("username").getTextContent(), attributes.getNamedItem("password").getTextContent());
-            }
-        }
-        return null;
+        Node entryNode = getEntryNodeByID(ID);
+        if (entryNode == null) return null;
+        NamedNodeMap attributes = entryNode.getAttributes();
+        return new Entry(ID, attributes.getNamedItem("title").getTextContent(), attributes.getNamedItem("url").getTextContent(), attributes.getNamedItem("username").getTextContent(), attributes.getNamedItem("password").getTextContent());
     }
 
-    public HashSet<Entry> getEntriesWhereMatches(String attribute, String value) throws InvalidAttributeException {
+    public HashSet<Entry> getEntriesWhereMatches(String attribute, String value) throws InvalidAttributeException, DBFormatException {
 
         HashSet<Entry> entries = new HashSet<>();        
 
         HashSet<Integer> IDs = getIDsWhereMatches(attribute, value);
         for (int ID : IDs) {
-
 
             entries.add(getEntryByID(ID));
         }
@@ -254,44 +289,18 @@ public class Manager {
         return entries;
     }
 
-    public String retrieveUsername(int ID) throws DBFormatException {
+    public String getUsernameByID(int ID) throws DBFormatException {
 
-        try {
-
-            NodeList nodes = db.getDocumentElement().getChildNodes();
-            int i = 0;
-            Node currNode;
-            while ((currNode = nodes.item(i++)) != null) {
-                if (currNode.getAttributes().getNamedItem("id").getTextContent().equals(String.valueOf(ID))) {
-                    return currNode.getAttributes().getNamedItem("username").getTextContent();
-                }
-            }
-            return null;
-        }
-        catch (NullPointerException e) {
-
-            throw new DBFormatException("Database not yet loaded.");
-        }
+        Node entryNode = getEntryNodeByID(ID);
+        if (entryNode == null) return null;
+        return entryNode.getAttributes().getNamedItem("username").getTextContent();
     }
 
-    public String retrievePassword(int ID) throws DBFormatException {
+    public String getPasswordByID(int ID) throws DBFormatException {
 
-        try {
-
-            NodeList nodes = db.getDocumentElement().getChildNodes();
-            int i = 0;
-            Node currNode;
-            while ((currNode = nodes.item(i++)) != null) {
-                if (currNode.getAttributes().getNamedItem("id").getTextContent().equals(String.valueOf(ID))) {
-                    return currNode.getAttributes().getNamedItem("password").getTextContent();
-                }
-            }
-            return null;
-        }
-        catch (NullPointerException e) {
-
-            throw new DBFormatException("Database not yet loaded.");
-        }
+        Node entryNode = getEntryNodeByID(ID);
+        if (entryNode == null) return null;
+        return entryNode.getAttributes().getNamedItem("password").getTextContent();
     }
 
     public void createDB() {

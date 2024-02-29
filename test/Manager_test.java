@@ -44,7 +44,7 @@ public class Manager_test {
             m.enterPassword("bananas");
             m.setDbURL("myFiles/test.pdb");
             m.decryptDB();
-            Assert.assertEquals("sam", m.retrieveUsername(1));
+            Assert.assertEquals("sam", m.getUsernameByID(1));
         } catch (Exception e) {
             fail(e.getMessage());
         }
@@ -59,7 +59,7 @@ public class Manager_test {
             m.enterPassword("bananas");
             m.setDbURL("myFiles/test.pdb");
             m.decryptDB();
-            Assert.assertEquals("bananas", m.retrievePassword(1));
+            Assert.assertEquals("bananas", m.getPasswordByID(1));
         } catch (Exception e) {
             fail(e.getMessage());
         }
@@ -69,14 +69,14 @@ public class Manager_test {
     public void getUsername_DBUninitialised() {
 
         Manager m = new Manager();
-        Assert.assertThrows(DBFormatException.class, () -> m.retrieveUsername(1));
+        Assert.assertThrows(DBFormatException.class, () -> m.getUsernameByID(1));
     }
 
     @Test
     public void getPassword_DBUninitialised() {
 
         Manager m = new Manager();
-        Assert.assertThrows(DBFormatException.class, () -> m.retrievePassword(1));
+        Assert.assertThrows(DBFormatException.class, () -> m.getPasswordByID(1));
     }
 
     @Test
@@ -85,7 +85,7 @@ public class Manager_test {
         try {
             Manager m = new Manager();
             m.createDB();
-            Assert.assertNull(m.retrieveUsername(1));
+            Assert.assertNull(m.getUsernameByID(1));
         }
         catch (DBFormatException e) {
             fail(e.getMessage());
@@ -98,7 +98,7 @@ public class Manager_test {
         try {
             Manager m = new Manager();
             m.createDB();
-            Assert.assertNull(m.retrievePassword(1));
+            Assert.assertNull(m.getPasswordByID(1));
         }
         catch (DBFormatException e) {
             fail(e.getMessage());
@@ -299,6 +299,24 @@ public class Manager_test {
             m.setDbURL("myFiles/test.pdb");
             m.decryptDB();
             Assert.assertThrows(InvalidAttributeException.class, () -> m.getEntriesWhereMatches("titleName", "Google"));
+        }
+        catch(EncryptionException | FileAccessException | DBFormatException e) {
+
+            fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void modifyEntry_valid_password() {
+
+        try {
+
+            Manager m = new Manager();
+            m.enterPassword("bananas");
+            m.setDbURL("myFiles/test.pdb");
+            m.decryptDB();
+            m.modifyEntry(2, "password", "Ch@ngedP@55");
+            Assert.assertEquals("Ch@ngedP@55", m.getPasswordByID(2));
         }
         catch(EncryptionException | FileAccessException | DBFormatException e) {
 
