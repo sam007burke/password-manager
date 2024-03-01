@@ -18,6 +18,27 @@ public class Entry {
         this.password = password;
     }
 
+    public String get(String attribute) throws InvalidAttributeException {
+
+        switch (attribute.toLowerCase()) {
+
+            case "title":
+                return title;
+
+            case "url":
+                return URL;
+            
+            case "username":
+                return username;
+            
+            case "password":
+                return password;
+            
+            default:
+                throw new InvalidAttributeException(attribute + " is not a valid attribute.");
+        }
+    }
+
     public int getID() {
         return ID;
     }

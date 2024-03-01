@@ -117,6 +117,7 @@ public class Manager_test {
             m.createFile();
             m.addEntry("samuelburke.xyz", "sam", "bananas");
             m.addEntry("google.com", "sam@gmail.com", "myGooglePassword123");
+            m.addEntry("MySite", "samuelburke.co.uk", "sam", "anotherpassword");
             m.encryptDB();
 
             Manager o = new Manager();

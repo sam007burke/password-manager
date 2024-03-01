@@ -11,9 +11,13 @@ import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 import java.text.AttributedCharacterIterator.Attribute;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Scanner;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -51,7 +55,112 @@ public class Manager {
 
     public static void main(String[] args) {
         
+        Manager m = new Manager();
+        Scanner reader = new Scanner(System.in);
 
+        System.out.print("Database file: ");
+        m.setDbURL(reader.nextLine());
+        System.out.print("Password: ");
+        m.enterPassword(new String(System.console().readPassword()));
+
+        try {
+        
+            m.decryptDB();
+        }
+        catch (FileAccessException | EncryptionException e) {
+            
+            System.out.println(e.getMessage());
+            System.exit(1);
+        }
+
+        String input = reader.nextLine().strip();
+        while (!input.equals("exit")) {
+
+            // split command into parts
+            ArrayList<String> splitByQuote = new ArrayList<String>(Arrays.asList(input.split("\"")));
+            ArrayList<String> parts = new ArrayList<>();
+            int start = 0;
+            if (input.charAt(0) == '"') {
+                start = 1;
+                splitByQuote.remove(0);
+                parts.add(splitByQuote.get(0));
+            }
+            for (int i = start; i < splitByQuote.size(); i += 2) {
+                parts.addAll(Arrays.asList(splitByQuote.get(i).strip().split(" +")));
+                if (i + 1 < splitByQuote.size()) parts.add(splitByQuote.get(i + 1));
+            }
+
+            switch (parts.get(0).toLowerCase()) {
+                
+                case "get":
+                
+                    try {
+                        
+                        if (parts.get(2).toLowerCase().equals("where") && parts.get(4).toLowerCase().equals("is")) {
+                            HashSet<Entry> entries = m.getEntriesWhereMatches(parts.get(3), parts.get(5));
+                            for (Entry e : entries) {
+                                System.out.println(e.get(parts.get(1)));
+                            }
+                        } 
+                        else throw new IndexOutOfBoundsException();
+                    }
+                    catch (IndexOutOfBoundsException e) {
+
+                        System.out.println("Invalid syntax: Usage: GET <attribute> WHERE <attribute> IS <value>");
+                    }
+                    break;
+            
+
+                case "add":
+
+                    try {
+                        
+                        byte inputTracker = 0;
+                        int index = 1;
+                        String title = null;
+                        String URL = null;
+                        String username = null;
+                        String password = null;
+                        while (index < parts.size()) {
+                            switch (parts.get(index).toLowerCase()) {
+                                case "title":
+                                    title = parts.get(++index);
+                                    inputTracker += 1;
+                                    break;
+                                case "username":
+                                    username = parts.get(++index);
+                                    inputTracker += 2;
+                                    break;
+                                case "password":
+                                    password = parts.get(++index);
+                                    inputTracker += 4;
+                                    break;
+                                case "url":
+                                    URL = parts.get(++index);
+                                    inputTracker += 8;
+                                    break;
+                                default:
+                                    System.out.println("Invalid syntax: Usage: ADD <attribute> <value> ...");
+                                    break;
+                            }
+                            index++;
+                        }
+
+                        if (inputTracker == 7) m.addEntry(title, username, password);
+                        else if (inputTracker == 15) m.addEntry(title, URL, username, password);
+                        else System.out.println("Invalid syntax: Usage: ADD <attribute> <value> ...");
+                    }
+                    catch (IndexOutOfBoundsException e) {
+                    
+                        System.out.println("Invalid syntax: Usage: ADD <attribute> <value> ...");
+                    }
+                
+                default:
+                    break;
+            }
+
+            input = reader.nextLine();
+        }
     }
 
     public Manager() {
@@ -64,7 +173,7 @@ public class Manager {
         this.dbURL = dbURL;
     }
 
-    public void enterPassword(String password) throws EncryptionException {
+    public void enterPassword(String password) {
 
         this.passwordHash = hashString(password);
     }
@@ -115,7 +224,7 @@ public class Manager {
         }
     }
 
-    public String hashString(String s) throws EncryptionException {
+    public String hashString(String s) {
 
         try {
         
@@ -125,7 +234,9 @@ public class Manager {
         }
         catch (NoSuchAlgorithmException e) {
 
-            throw new EncryptionException("Cannot hash given string. (invalid hash algorithm).");
+            // we should never get here.
+            // throw new EncryptionException("Cannot hash given string. (invalid hash algorithm).");
+            return null;
         }
     }
 
