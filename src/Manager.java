@@ -54,25 +54,66 @@ public class Manager {
     private HashSet<String> allowedAttributes = new HashSet<>();
 
     public static void main(String[] args) {
-        
+
         Manager m = new Manager();
         Scanner reader = new Scanner(System.in);
-
-        System.out.print("Database file: ");
-        m.setDbURL(reader.nextLine());
-        System.out.print("Password: ");
-        m.enterPassword(new String(System.console().readPassword()));
-
-        try {
         
-            m.decryptDB();
-        }
-        catch (FileAccessException | EncryptionException e) {
+        if (args.length == 2) {
+
+            switch (args[0]) {
+                case "open":
+                    
+                    m.setDbURL(args[1]);
+                    System.out.print("Password: ");
+                    m.enterPassword(new String(System.console().readPassword()));
+                    try {
+
+                        m.decryptDB();
+                    }
+                    catch (EncryptionException | FileAccessException e) {
+
+                        System.out.println("Could not open database.");
+                        System.exit(1);
+                    }
+                    catch (DBFormatException e) {
+
+                        System.out.println("Incorrect password");
+                        System.exit(1);
+                    }
+                    break;
+
+                case "create":
+
+                    try {
+                    
+                        m.setDbURL(args[1]);
+                        m.createFile();
+                        m.createDB();
+                        System.out.print("Password: ");
+                        m.enterPassword(new String(System.console().readPassword()));
+                    }
+                    catch (FileAccessException e) {
+                    
+                        System.out.println("Could not create database.");
+                        System.exit(1);
+                    }
+
+                    break;
             
-            System.out.println(e.getMessage());
+                default:
+
+                    System.out.println("Error: Usage: java Manager [open|create] <filePath>");
+                    System.exit(1);
+                    break;
+            }
+        }
+        else {
+
+            System.out.println("Error: Usage: java Manager [open|create] <filePath>");
             System.exit(1);
         }
 
+        System.out.print("> ");
         String input = reader.nextLine().strip();
         while (!input.equals("exit")) {
 
@@ -97,9 +138,12 @@ public class Manager {
                     try {
                         
                         if (parts.get(2).toLowerCase().equals("where") && parts.get(4).toLowerCase().equals("is")) {
+                            
                             HashSet<Entry> entries = m.getEntriesWhereMatches(parts.get(3), parts.get(5));
                             for (Entry e : entries) {
-                                System.out.println(e.get(parts.get(1)));
+
+                                if (parts.get(1).toLowerCase().equals("all")) System.out.println(e.toString());
+                                else System.out.println(e.get(parts.get(1)));
                             }
                         } 
                         else throw new IndexOutOfBoundsException();
@@ -155,12 +199,30 @@ public class Manager {
                         System.out.println("Invalid syntax: Usage: ADD <attribute> <value> ...");
                     }
                 
+                    break;
+                
+                case "save":
+
+                    try {
+                        
+                        m.encryptDB();
+                    }
+                    catch (FileAccessException | EncryptionException e) {
+                    
+                        System.out.println("Error saving database.");
+                    }
+                
+                    break;
+
                 default:
                     break;
             }
 
-            input = reader.nextLine();
+            System.out.print("> ");
+            input = reader.nextLine().strip();
         }
+
+        reader.close();
     }
 
     public Manager() {

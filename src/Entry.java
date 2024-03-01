@@ -58,4 +58,12 @@ public class Entry {
     public String getPassword() {
         return password;
     }
+
+    @Override
+    public String toString() {
+        return String.format(
+            "Title: %s\nURL: %s\nUsername: %s\nPassword: %s",
+             title, URL, username, password
+        );
+    }
 }
